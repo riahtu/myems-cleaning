@@ -54,7 +54,7 @@ def process(logger):
                 max_datetime = row_datetime[1]
 
         except Exception as e:
-            logger.error("Error in step 1 of clean_energy_value.process " + str(e))
+            logger.error("Error in Step 1 of clean_energy_value.process " + str(e))
             if cursor:
                 cursor.close()
             if cnx:
@@ -328,7 +328,7 @@ def process(logger):
             cursor.execute(query, (min_datetime, max_datetime,))
             rows_energy_values = cursor.fetchall()
         except Exception as e:
-            logger.error("Error in step 3 of clean_energy_value.process " + str(e))
+            logger.error("Error in step 3.1 of clean_energy_value.process " + str(e))
             if cursor:
                 cursor.close()
             if cnx:
@@ -367,7 +367,7 @@ def process(logger):
             if len(point_value_list) <= 1:
                 continue
             elif len(point_value_list) == 2:
-                if point_value_list[1]['actual_value'] < point_value_list[1]['actual_value']:
+                if point_value_list[1]['actual_value'] < point_value_list[0]['actual_value']:
                     bad_list.append(point_value_list[1]['id'])
                 continue
             else:
@@ -382,11 +382,11 @@ def process(logger):
                         if len(concave_point_value_list) > 0:
                             # save confirmed concave value(s) to bad value(s)
                             bad_list.extend(concave_point_value_list)
-                            del concave_point_value_list
-                            if i+1 < len(point_value_list):
-                                # prepare for next candidate concave value list
-                                base_point_value = point_value_list[i+1]['actual_value']
-                                concave_point_value_list = list()
+
+                        # prepare for next candidate concave value list
+                        base_point_value = point_value_list[i]['actual_value']
+                        concave_point_value_list.clear()
+                continue
 
         print('bad list: ' + str(bad_list))
         if len(bad_list) > 0:
@@ -397,7 +397,7 @@ def process(logger):
                 cursor.execute(update, )
                 cnx.commit()
             except Exception as e:
-                logger.error("Error in step 3 of clean_energy_value.process " + str(e))
+                logger.error("Error in step 3.2 of clean_energy_value.process " + str(e))
                 if cursor:
                     cursor.close()
                 if cnx:
@@ -452,6 +452,36 @@ def process(logger):
         ################################################################################################################
 
         ################################################################################################################
+        # TODO: bad case 2.11
+        # id       point_id utc_date_time          actual_value   is_bad (expected)
+        # 14784589 21	    2020-03-05 07:22:22    17990           good
+        # 14784450 21	    2020-03-05 07:21:17    17990           good
+        # 14784311 21	    2020-03-05 07:20:10    17990           good
+        # 14784172 21	    2020-03-05 07:19:04    17990           good
+        # 14784033 21	    2020-03-05 07:17:58    18990           bad
+        # 14783894 21	    2020-03-05 07:16:52    17990           good
+        # 14783755 21	    2020-03-05 07:15:46    17990           good
+        # 14783616 21	    2020-03-05 07:14:40    17990           good
+        # 14783477 21	    2020-03-05 07:13:34    17990           good
+        # 14783338 21	    2020-03-05 07:12:28    17990           good
+        # 14783199 21	    2020-03-05 07:11:22    17990           good
+        ################################################################################################################
+
+        ################################################################################################################
+        # TODO: bad case 2.12
+        # id       point_id utc_date_time          actual_value   is_bad (expected)
+        # 3337308  21       2020-01-07 09:02:18    7990           good
+        # 3337174  21       2020-01-07 09:01:13    7990	          good
+        # 3337040  21       2020-01-07 09:00:08    7990	          good
+        # 3336906  21       2020-01-07 08:59:04    7990	          good
+        # 3336772  21       2020-01-07 08:57:59    7990	          good
+        # 3336638  21       2020-01-07 08:56:54    8990	          bad
+        # 3336504  21       2020-01-07 08:55:49    7990	          good
+        # 3336370  21       2020-01-07 08:54:44    7990	          good
+        # 3336236  21       2020-01-07 08:53:39    7990	          good
+        # 3336102  21       2020-01-07 08:52:34    7990	          good
+        # 3335968  21       2020-01-07 08:51:30    7990	          good
+        ################################################################################################################
         # Step 4: tag the is_bad property of energy values.
         ################################################################################################################
         try:
@@ -472,4 +502,3 @@ def process(logger):
                 cnx.close()
 
         time.sleep(900)
-
