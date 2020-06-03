@@ -6,8 +6,10 @@ myems_historical_db = {
     'database': 'myems_historical_db',
 }
 
-# indited how long the analog values and digital values will be saved in database
-save_in_days = 365
+# indicates how long analog values and digital values will be kept in database
+# the longer days the more memory and disc space needed.
+live_in_days = 365
+# note: By default, energy values in historical db will never be deleted automatically.
 
-# indited if the program is in debug mode
+# indicates if the program is in debug mode
 is_debug = False

@@ -169,20 +169,24 @@ def process(logger):
         #       3333      2018-02-08 00:55:20    165599.015625          good
         #       3333      2018-02-08 00:54:16    165599.015625          good
         ################################################################################################################
-
+        print("Step 2: Processing bad case 1.x")
         try:
-            # todo: get low limit value and high limit value from point property
-            low_limit = 1.000
-            high_limit = 99999999999
-            print("Processing bad case 2.1")
-            update = (" UPDATE tbl_energy_value "
-                      " SET is_bad = TRUE "
-                      " WHERE (actual_value <= %s OR actual_value > %s) "
-                      "       AND utc_date_time >= %s AND utc_date_time <= %s ")
-            cursor.execute(update, (low_limit, high_limit, min_datetime, max_datetime, ))
-            cnx.commit()
+            cnx = mysql.connector.connect(**config.myems_system_db)
+            cursor = cnx.cursor(dictionary=True)
+
+            query = (" SELECT id, high_limit, low_limit "
+                     " FROM tbl_points "
+                     " WHERE object_type='ENERGY_VALUE'")
+            cursor.execute(query)
+            rows_points = cursor.fetchall()
+
+            point_dict = dict()
+            if rows_points is not None and len(rows_points) > 0:
+                for row in rows_points:
+                    point_dict[row['id']] = {"high_limit": row['high_limit'],
+                                             "low_limit": row['low_limit']}
         except Exception as e:
-            logger.error("Error in step 2 of clean_energy_value.process " + str(e))
+            logger.error("Error in step 2.1 of clean_energy_value.process " + str(e))
             if cursor:
                 cursor.close()
             if cnx:
@@ -190,10 +194,52 @@ def process(logger):
             time.sleep(60)
             continue
 
+        try:
+            query = (" SELECT id, point_id, actual_value "
+                     " FROM tbl_energy_value "
+                     " WHERE utc_date_time >= %s AND utc_date_time <= %s AND is_bad IS NOT TRUE ")
+            cursor.execute(query, (min_datetime, max_datetime,))
+            rows_energy_values = cursor.fetchall()
+        except Exception as e:
+            logger.error("Error in step 2.2 of clean_energy_value.process " + str(e))
+            if cursor:
+                cursor.close()
+            if cnx:
+                cnx.close()
+            time.sleep(60)
+            continue
+
+        bad_list = list()
+
+        if rows_energy_values is not None and len(rows_energy_values) > 0:
+            for row_energy_value in rows_energy_values:
+                point_id = row_energy_value[1]
+                actual_value = row_energy_value[2]
+                point = point_dict.get(point_id, None)
+                if point is None or actual_value > point['high_limit'] or actual_value < point['low_limit']:
+                    bad_list.append(row_energy_value[0])
+
+        print('bad list: ' + str(bad_list))
+        if len(bad_list) > 0:
+            try:
+                update = (" UPDATE tbl_energy_value "
+                          " SET is_bad = TRUE "
+                          " WHERE id IN (" + ', '.join(map(str, bad_list)) + ")")
+                cursor.execute(update, )
+                cnx.commit()
+            except Exception as e:
+                logger.error("Error in step 2.3 of clean_energy_value.process " + str(e))
+                if cursor:
+                    cursor.close()
+                if cnx:
+                    cnx.close()
+                time.sleep(60)
+                continue
+
         ################################################################################################################
         # Step 3: check bad case class 2 which is in concave shape model.
         ################################################################################################################
-
+        print("Step 3: Processing bad case 2.x")
         ################################################################################################################
         # bad case 2.1
         # id    point_id  utc_date_time          actual_value       is_bad (expected)
@@ -406,7 +452,7 @@ def process(logger):
                 continue
 
         ################################################################################################################
-        # TODO: bad case 2.7
+        # TODO: bad case 2.8
         # id          point_id utc_date_time          actual_value is_bad (expected)
         # 105752070    3333    2018-02-04 00:27:15    138144       good
         # 105752305    3333    2018-02-04 00:28:19    138144       good

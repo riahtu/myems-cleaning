@@ -20,7 +20,7 @@ def job(logger):
             cnx.close()
         return
 
-    expired_utc = datetime.utcnow() - timedelta(days=config.save_in_days)
+    expired_utc = datetime.utcnow() - timedelta(days=config.live_in_days)
     try:
         cursor.execute(" DELETE FROM tbl_digital_value WHERE utc_date_time < %s ", (expired_utc,))
         cnx.commit()
